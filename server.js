@@ -51,7 +51,11 @@ app.get("/", (req, res) => {
 })
 
 app.get("/sensors", (req, res) => {
-    res.send(datas);c
+    res.send(datas);
+})
+
+app.get("/", (req, res) => {
+    res.send("hello world!");
 })
 
 // Start the server
