@@ -6,21 +6,21 @@ dotenv.config();
 
 const app = express();
 const PORT = '3001';
-const db = pool
+// const db = pool
 let datas = []
 
 // Middleware
 app.use(express.json());
 
-app.get('/api/data/:patientId', async (req, res) => {
-    try {
-        const queryResult = await db.query('SELECT * FROM your_table');
-        res.json(queryResult.rows);
-    } catch (err) {
-        handleError(err);
-        res.status(500).send('Database error'); // Handle database issues gracefully
-    }
-});
+// app.get('/api/data/:patientId', async (req, res) => {
+//     try {
+//         const queryResult = await db.query('SELECT * FROM your_table');
+//         res.json(queryResult.rows);
+//     } catch (err) {
+//         handleError(err);
+//         res.status(500).send('Database error'); // Handle database issues gracefully
+//     }
+// });
 app.post("/sensors", async (req, res) => {
     try {
         const { oxygen, heartbeat, temprature } = req.body;
