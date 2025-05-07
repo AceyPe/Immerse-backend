@@ -1,31 +1,33 @@
-// import pg from 'pg'
-// import dotenv from 'dotenv'
+import pg from 'pg'
+import dotenv from 'dotenv'
 
-// const { Pool, Client } = pg
-// dotenv.config();
+const { Pool, Client } = pg
+dotenv.config();
 
-// export const pool = new Pool({
-//     user: process.env.PGUSER,
-//     password: process.env.PGPASSWORD,
-//     host: process.env.PGHOST,
-//     port: process.env.PGPORT,
-//     database: process.env.PGDATABASE,
-// }
-// )
+export const pool = new Pool({
+    user: process.env.PGUSER,
+    password: process.env.PGPASSWORD,
+    host: process.env.PGHOST,
+    port: process.env.PGPORT,
+    database: process.env.PGDATABASE,
+}
+)
 
-// // console.log(pool)
-// // console.log(await pool.query('SELECT user FROM USER'))
+// Test connection
+const connectWithRetry = async (retries = 5, delay = 5000) => {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const result = await pool.query('SELECT NOW()');
+            console.log("Connected to PostgreSQL! ✅", result.rows[0]);
+            return;
+        } catch (error) {
+            console.error(`PostgreSQL connection failed. Retrying in ${delay / 1000} seconds...`);
+            await new Promise(res => setTimeout(res, delay));
+        }
+    }
+    console.error("PostgreSQL connection failed after multiple attempts. ❌");
+    process.exit(1);
+};
 
-// const client = new Client({
-//     user: pool.user,
-//     password: pool.password,
-//     host: pool.host,
-//     port: pool.port || 5432,
-//     database: pool.database,
-// })
-
-// await client.connect()
-
-// // console.log(await client.query('SELECT NOW()'))
-
-// await client.end()
+// Try connecting
+connectWithRetry();

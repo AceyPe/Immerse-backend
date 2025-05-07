@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  backend:
+    build: aceyp/calma-backend:latest
+    container_name: backend
+    ports:
+      - "2226:2226"
+    volumes:
+    - /etc/calma-backend/keys/private_key.pem:/calma-backend/private_key.pem:ro
+    - /etc/calma-backend/keys/public_key.pem:/calma-backend/public_key.pem:ro
+    depends_on:
+      - db
+    environment:
+      - JWT_PRIVATE_KEY=/calma-backend/public.key
+    networks:
+      - app_network
+
+  db:
+    image: postgres:latest
+    container_name: database
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: 123123
+      POSTGRES_DB: calma
+    volumes:
+      - /hdds/7esso/db/postgresql:/var/lib/postgresql/data
+    networks:
+      - app_network
+networks:
+  app_network:
+    driver: bridge
+          

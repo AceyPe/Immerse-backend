@@ -1,66 +1,54 @@
 import express from 'express';
-import dotenv from 'dotenv'
-// import { pool } from './config/db.js';
+import dotenv from 'dotenv';
+import sensorsRoutes from './routes/sensorsRoutes.js';
+import sessionRoutes from './routes/sessionRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+import formRoutes from './routes/formRoutes.js';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import { createTables } from './config/dbSetup.js';
+import { Server } from 'socket.io';
+import http from 'http';
+import { initSocket } from './websocket.js';
 
 dotenv.config();
 
 const app = express();
-const PORT = '3001';
-// const db = pool
-let datas = []
+const server = http.createServer(app);
+const PORT = process.env.PORT || '2226';
 
 // Middleware
+app.use(cors({
+  origin: 'http://localhost:2225',
+  credentials: true,
+}));
 app.use(express.json());
+app.use(cookieParser());
 
-// app.get('/api/data/:patientId', async (req, res) => {
-//     try {
-//         const queryResult = await db.query('SELECT * FROM your_table');
-//         res.json(queryResult.rows);
-//     } catch (err) {
-//         handleError(err);
-//         res.status(500).send('Database error'); // Handle database issues gracefully
-//     }
-// });
-app.post("/sensors", async (req, res) => {
-    try {
-        const { oxygen, heartbeat, temprature } = req.body;
+// intiate socket
+initSocket(server);
 
-        if (!oxygen || !heartbeat || !temprature) {
-            return res.status(400).json({ error: "Missing required fields." });
-        }
-
-        // const result = await db.query(
-        //     "INSERT INTO sensor_readings (patient_id, oxygen, heartbeat, timestamp) VALUES ($1, $2, $3, NOW()) RETURNING *",
-        //     [patientId, oxygen, heartbeat]
-        // );
-
-        // broadcast data to websocket clients
-        const data = result.rows[0];
-        datas.append(data);
-        // broadcast(data);
-
-        res.status(201).json({ message: "Data recieved and broadcasted.", data });
-    } catch (error) {
-        console.error("Error inserting sensor data:", error);
-        res.status(500).json({ error: "Internal server error." });
-    }
-});
+// define routes
+app.use('/api', sensorsRoutes);
+app.use('/api', sessionRoutes);
+app.use('/api', userRoutes);
+app.use('/api', formRoutes);
+app.use('/api/auth', authRoutes);
 
 app.get("/", (req, res) => {
-    res.send("test");
-})
-
-app.get("/sensors", (req, res) => {
-    res.send(datas);
-})
-
-app.get("/", (req, res) => {
-    res.send("hello world!");
-})
-
-// Start the server
-app.listen(PORT, () => {
-
-    console.log(`server running on http://localhost:${PORT}`);
-
+    res.send("Welcome to the CalmaVR API!");
 });
+
+await createTables().then(() => {
+    console.log('Database Setup Complete!')
+
+    // Start the server
+    app.listen(PORT, () => {
+    
+        console.log(`server running on http://localhost:${PORT}`);
+    
+    });
+}).catch(err => {
+    console.log('Error during database setup:', err);
+})

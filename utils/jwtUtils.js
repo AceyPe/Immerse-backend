@@ -1,40 +1,50 @@
+import * as jose from 'jose';
+import { JWT_CONFIG } from '../config/jwtConfig.js';
+import dotenv from 'dotenv'
+
+
+dotenv.config();
+
+let privateKey, publicKey;
+
+(async () => {
+    privateKey = await jose.importPKCS8(JWT_CONFIG.privateKey, JWT_CONFIG.algorithm);
+    publicKey = await jose.importSPKI(JWT_CONFIG.publicKey, JWT_CONFIG.algorithm);
+})();
+
+
 /**
- * Middleware-friendly token verification.
- *
- * @param {string} token - The JWT token from headers.
- * @returns {Object} - The decoded payload.
- * @throws {Error} - If the token is invalid or expired.
+ * Generates and encrypts a JWT token.
+ * @param {Object} payload - The data to include in the JWT.
+ * @returns {Promise<string>} - The encrypted JWT token.
  */
-export const validateAccessToken = async (token) => {
-    if (!token) {
-        throw new Error('Token not provided');
+
+export const generateEncryptedToken = async (payload) => {
+    try {
+        const jwtToken = await new jose.SignJWT(payload)
+            .setProtectedHeader({ alg: JWT_CONFIG.algorithm })
+            .setIssuedAt()
+            .setExpirationTime(JWT_CONFIG.expiration)
+            .sign(privateKey);
+
+        return jwtToken;
+    } catch (error) {
+        console.error('Error creating token: ', error.message);
+        throw new Error('Failed to create token');
     }
-
-    return await verifyToken(token);
 };
 
-/**
- * Refresh token logic (example placeholder).
- * 
- * @param {Object} user - The user object.
- * @returns {Promise<string>} - A new JWT token with an extended expiration time.
- */
-export const createRefreshToken = async (user) => {
-    const payload = {
-        userId: user.id,
-    };
 
-    // Refresh tokens typically last much longer than access tokens
-    return await generateToken(payload, '7d');
-};
+export const verifyEncryptedToken = async (token) => {
+    try {
+        const { payload } = await jose.jwtVerify(token, publicKey);
+        return payload;
+    } catch (error) {
+        console.error('Error verifying token: ', error.message);
+        throw new Error('Invalid or expired token');
+    }
+}
 
-/**
- * Check user role from token payload.
- *
- * @param {Object} payload - The JWT payload.
- * @param {string} requiredRole - The required role (e.g., 'admin').
- * @returns {boolean} - Whether the user has the required role.
- */
-export const checkUserRole = (payload, requiredRole) => {
-    return payload.role && payload.role === requiredRole;
-};
+
+
+
