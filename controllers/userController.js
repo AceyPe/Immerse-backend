@@ -65,6 +65,69 @@ export const getTherapists = async (req, res) => {
     }
 }
 
+export const getTherapistById = async (req, res) => {
+    const { id } = req.params;
+    const query = `SELECT * FROM therapist WHERE id = $1;`;
+
+    try {
+        const { rows } = await db.query(query, [id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'No therapist found with this id!' });
+        }
+
+        
+        return res.status(200).json({ therapist: rows });
+    } catch (err) {
+        console.error("Error fetching therapist:", err);
+        return res.status(500).json({
+            message: 'Error fetching therapist, please try again later.',
+            error: err.message
+        });
+    }
+}
+
+export const getPatientById = async (req, res) => {
+    const { id } = req.params;
+    const query = `SELECT * FROM patient WHERE id = $1;`;
+
+    try {
+        const { rows } = await db.query(query, [id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'No patient found with this id!' });
+        }
+
+        
+        return res.status(200).json({ patient: rows });
+    } catch (err) {
+        console.error("Error fetching patient:", err);
+        return res.status(500).json({
+            message: 'Error fetching patient, please try again later.',
+            error: err.message
+        });
+    }
+}
+
+export const getPatientsByTherapistId = async (req, res) => {
+    const { therapistId } = req.params;
+    const query = `SELECT * FROM patient WHERE therapistId = $1;`;
+
+    try {
+        const { rows } = await db.query(query, [therapistId]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'No patients found related to this therapist!' });
+        }
+
+        
+        return res.status(200).json({ patients: rows });
+    } catch (err) {
+        console.error("Error fetching patients:", err);
+        return res.status(500).json({
+            message: 'Error fetching patients, please try again later.',
+            error: err.message
+        });
+    }
+}
+
 
 export const deleteUserById = async (req, res) => {
     const { id } = req.params;

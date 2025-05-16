@@ -40,6 +40,7 @@ export const register = async (req, res) => {
     RETURNING *;
     `;
     
+    let queryResult;
     try {
         const { rows } = await db.query(query, [sanitizedEmail, hashedPassword, sanitizedRole]);
         if (role === "patient")
@@ -50,7 +51,7 @@ export const register = async (req, res) => {
             RETURNING *;
             `;
 
-            await db.query(patientQuery, [therapistId, parentId,sanitizedName, sanitizedAge, sanitizedPhone, rows[0].id]);
+            queryResult = await db.query(patientQuery, [therapistId, parentId,sanitizedName, sanitizedAge, sanitizedPhone, rows[0].id]);
         }
 
         else if (role === "parent")
@@ -61,7 +62,7 @@ export const register = async (req, res) => {
             RETURNING *;
             `;
 
-            await db.query(parentQuery, [sanitizedName, sanitizedAge, sanitizedPhone, rows[0].id]);
+            queryResult = await db.query(parentQuery, [sanitizedName, sanitizedAge, sanitizedPhone, rows[0].id]);
         }
 
         else if (role === "therapist")
@@ -72,7 +73,7 @@ export const register = async (req, res) => {
             RETURNING *;
             `;
 
-            await db.query(therapistQuery, [sanitizedName, sanitizedAge, sanitizedPhone, rows[0].id, sanitizedSpecialization]);
+            queryResult = await db.query(therapistQuery, [sanitizedName, sanitizedAge, sanitizedPhone, rows[0].id, sanitizedSpecialization]);
 
             // if (certificateFile)
             // {
@@ -81,8 +82,8 @@ export const register = async (req, res) => {
             // }
         }
         // Removing the password before returning
-        const { password, ...userData } = rows[0];
-        const token = await generateEncryptedToken({ id: userData.id, role: userData.role });
+        const { password, ...userData } = data;
+        const token = await generateEncryptedToken({ name: userData.name, id: userData.id, role: userData.role, roleId: queryResult.rows[0].id });
         return res.cookie('token', token, {
             httpOnly: true,
             samesite: 'lax',
@@ -123,9 +124,59 @@ export const login = async (req, res) => {
             if (!isMatch) {
                 return res.status(401).json({ error: "Invalid email or password" });
             }
+            let queryResult;
 
+            if (user.role === "therapist") {
+                const roleQuery = `SELECT * FROM therapist WHERE userId = $1;`;
+                try {
+                    queryResult = await db.query(roleQuery, [user.id]);
+                    if (queryResult.rows[0].length === 0) {
+                        return res.status(404).json({ message: 'therapist not found' });
+                    }
+                } catch (err) {
+                    console.error('Error fetching therapist:', err);
+                    return res.status(500).json({
+                        message: 'Error fetching therapist, please try again later.',
+                        error: err.message
+                    });
+                }
+            }
+
+            else if (user.role === "parent") {
+                const roleQuery = `SELECT * FROM parent WHERE userId = $1;`;
+                try {
+                    queryResult = await db.query(roleQuery, [user.id]);
+                    if (queryResult.rows[0].length === 0) {
+                        return res.status(404).json({ message: 'parent not found' });
+                    }
+                } catch (err) {
+                    console.error('Error fetching parent:', err);
+                    return res.status(500).json({
+                        message: 'Error fetching parent, please try again later.',
+                        error: err.message
+                    });
+                }
+            }
+
+            else if (user.role === "patient") {
+                const roleQuery = `SELECT * FROM patient WHERE userId = $1;`;
+                try {
+                    queryResult = await db.query(roleQuery, [user.id]);
+                    if (queryResult.rows[0].length === 0) {
+                        return res.status(404).json({ message: 'patient not found' });
+                    }
+                } catch (err) {
+                    console.error('Error fetching patient:', err);
+                    return res.status(500).json({
+                        message: 'Error fetching patient, please try again later.',
+                        error: err.message
+                    });
+                }
+            }
+
+            console.log(queryResult.rows[0].id);
             // Generate JWT token
-            const token = await generateEncryptedToken({ id: user.id, role: user.role });
+            const token = await generateEncryptedToken({ name: user.name, id: user.id, role: user.role, roleId: queryResult.rows[0].id });
             res.cookie('token', token, {
                 httpOnly: true,
                 samesite: 'lax',
@@ -135,6 +186,19 @@ export const login = async (req, res) => {
             console.error(err);
             res.status(500).json({ error: "Server error" });
         }
+};
+
+export const getMyData = async (req, res) => {
+    const { token } = req.body;
+    if (!token) {
+        return res.status(404).json({ message: "missing token! no token found." });
+    }
+    try {
+        const payload = await verifyEncryptedToken(token, JWT_CONFIG.publicKey);
+        res.status(200).json({ name: payload.name, id: payload.id, role: payload.role, roleId: payload.roleId });
+    } catch (err) {
+        return res.status(401).end();
+    }
 };
     
 export const logout = async (req, res) => {
