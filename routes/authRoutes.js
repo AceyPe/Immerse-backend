@@ -10,7 +10,7 @@ router.post("/register", register);
 
 // get the data from a json token through cookie
 router.get("/me", requireAuth, (req, res) => {
-    res.json({ id: req.user.id, role: req.user.role, roleId: req.user.roleId })
+    res.json({ id: req.user.id, role: req.user.role })
 });
 
 // get the data from a json token sent in body

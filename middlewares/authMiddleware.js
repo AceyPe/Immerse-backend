@@ -8,7 +8,7 @@ export const requireAuth = async (req, res, next) => {
     }
     try {
         const payload = await verifyEncryptedToken(token, JWT_CONFIG.publicKey);
-        req.user = { id: payload.id, role: payload.role, roleId: payload.roleId };
+        req.user = { id: payload.id, role: payload.role };
         console.log(req.user);
         next();
     } catch (err) {

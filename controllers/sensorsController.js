@@ -1,7 +1,9 @@
-let datas = []; // Temporary buffer
 
+import fs from 'fs';
+import path from 'path';
+import { io } from '../websocket.js';
 import { pool } from '../config/db.js';
-import { io } from '../websocket.js'; // Your socket.io instance
+import { activeSessions } from './sessionController.js';
 
 const db = pool;
 
@@ -15,14 +17,22 @@ export const getSensorData = async (req, res) => {
     res.status(200).json({ data: datas });
 };
 
-// Receive data from ESP32
+
+
+const dataDir = path.resolve('sensor-data'); // Make sure this exists
+
 export const postSensorData = async (req, res) => {
     try {
-        const therapistId = parseInt(req.params.therapistId);
-        const { sessionId = null, oxygen, heartbeat, temperature, gsr } = req.body;
-
+        const therapistId = req.params.therapistId;
+        const sessionId = activeSessions.get(therapistId);
+        const { oxygen, heartbeat, temperature, gsr } = req.body;
+        
         if (!oxygen || !heartbeat || !temperature || !gsr) {
             return res.status(400).json({ error: "Missing required fields." });
+        }
+
+        if (!sessionId) {
+            return res.status(400).json({ error: "No active session for this therapist" });
         }
 
         const data = {
@@ -35,12 +45,14 @@ export const postSensorData = async (req, res) => {
             timestamp: new Date().toISOString(),
         };
 
-        datas.push(data);
+        // Real-time broadcast
+        io.to(`session_${sessionId}`).emit("new_sensor_data", data);
 
-        // Broadcast only if sessionId is assigned
-        if (sessionId) {
-            io.to(`session_${sessionId}`).emit("new_sensor_data", data);
-        }
+        // Save to file (append to disk)
+        const filePath = path.join(dataDir, `session_${sessionId}.jsonl`); // line-delimited JSON
+        fs.appendFile(filePath, JSON.stringify(data) + '\n', err => {
+            if (err) console.error("Failed to write sensor data:", err);
+        });
 
         res.status(201).json({ message: "Data received", data });
 
@@ -48,13 +60,4 @@ export const postSensorData = async (req, res) => {
         console.error("Sensor error:", error);
         res.status(500).json({ error: "Internal server error." });
     }
-};
-
-// Optional: Assign existing buffered data to a session
-export const assignBufferedDataToSession = (therapistId, sessionId) => {
-    datas.forEach(d => {
-        if (d.therapistId === therapistId && !d.sessionId) {
-            d.sessionId = sessionId;
-        }
-    });
 };

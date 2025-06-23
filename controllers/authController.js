@@ -24,7 +24,6 @@ function sanitizeInputs(email, password, therpistId, parentId, name, phone, age,
 
 // Function to create a user
 export const register = async (req, res) => {
-    console.log(req.body);
     const { email, password, role = "patient", name, age, phone, parentId = null, therapistId = null, certificateFile = null, specialization = null } = req.body;
     const allowedRoles = ["patient", "therapist", "parent"];
     if (!allowedRoles.includes(role)) {
@@ -51,7 +50,7 @@ export const register = async (req, res) => {
             RETURNING *;
             `;
 
-            queryResult = await db.query(patientQuery, [therapistId, parentId,sanitizedName, sanitizedAge, sanitizedPhone, rows[0].id]);
+            queryResult = await db.query(patientQuery, [SanitizedTherapistId, parentId, sanitizedName, sanitizedAge, sanitizedPhone, rows[0].id]);
         }
 
         else if (role === "parent")
@@ -82,8 +81,9 @@ export const register = async (req, res) => {
             // }
         }
         // Removing the password before returning
-        const { password, ...userData } = data;
-        const token = await generateEncryptedToken({ name: userData.name, id: userData.id, role: userData.role, roleId: queryResult.rows[0].id });
+        const { password, ...userData } = rows;
+        console.log(userData);
+        const token = await generateEncryptedToken({ name: userData.name, id: queryResult.rows[0].id, role: userData.role });
         return res.cookie('token', token, {
             httpOnly: true,
             samesite: 'lax',
@@ -108,7 +108,7 @@ export const login = async (req, res) => {
 
             const { sanitizedEmail, sanitizedPassword } = sanitizeInputs(email, password);
             
-            // // Check if user exists
+            // Check if user exists
             const userQuery = await db.query("SELECT * FROM users WHERE email = $1", [
                 sanitizedEmail,
             ]);
@@ -119,7 +119,7 @@ export const login = async (req, res) => {
 
             const user = userQuery.rows[0];
 
-            // // Compare passwords
+            // Compare passwords
             const isMatch = await argon2.verify(user.password, sanitizedPassword);
             if (!isMatch) {
                 return res.status(401).json({ error: "Invalid email or password" });
@@ -174,9 +174,8 @@ export const login = async (req, res) => {
                 }
             }
 
-            console.log(queryResult.rows[0].id);
             // Generate JWT token
-            const token = await generateEncryptedToken({ name: user.name, id: user.id, role: user.role, roleId: queryResult.rows[0].id });
+            const token = await generateEncryptedToken({ name: user.name, id: queryResult.rows[0].id, role: user.role });
             res.cookie('token', token, {
                 httpOnly: true,
                 samesite: 'lax',
@@ -195,7 +194,7 @@ export const getMyData = async (req, res) => {
     }
     try {
         const payload = await verifyEncryptedToken(token, JWT_CONFIG.publicKey);
-        res.status(200).json({ name: payload.name, id: payload.id, role: payload.role, roleId: payload.roleId });
+        res.status(200).json({ name: payload.name, id: payload.roleId, role: payload.role });
     } catch (err) {
         return res.status(401).end();
     }

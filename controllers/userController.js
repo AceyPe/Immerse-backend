@@ -65,6 +65,72 @@ export const getTherapists = async (req, res) => {
     }
 }
 
+export const getPatients = async (req, res) => {
+    const query = `SELECT * FROM patient;`;
+
+    try {
+        const { rows } = await db.query(query);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'No patients were found!' });
+        }
+
+        
+        return res.status(200).json({ patients: rows });
+    } catch (err) {
+        console.error("Error fetching patients:", err);
+        return res.status(500).json({
+            message: 'Error fetching patients, please try again later.',
+            error: err.message
+        });
+    }
+}
+
+export const getPatientAndUserEmailById = async (req, res) => {
+    const { id } = req.params;
+
+    const patientQuery = `SELECT * FROM patient WHERE id = $1;`;
+    const userEmailQuery = `SELECT email FROM users WHERE id = $1;`;
+
+    try {
+        // Step 1: Get the patient by ID
+        const patientResult = await db.query(patientQuery, [id]);
+
+        if (patientResult.rows.length === 0) {
+            return res.status(404).json({ message: 'No patient found with this id!' });
+        }
+
+        const patient = patientResult.rows[0];
+    
+        const userId = patient.userid;
+
+        if (!userId) {
+            return res.status(400).json({ message: 'No user_id associated with this patient.' });
+        }
+
+        // Step 2: Get the user's email using userId
+        const userResult = await db.query(userEmailQuery, [userId]);
+
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ message: 'No user found for this patient.' });
+        }
+
+        const userEmail = userResult.rows[0].email;
+
+        // Step 3: Respond with patient data and user email
+        return res.status(200).json({
+            patient,
+            userEmail
+        });
+
+    } catch (err) {
+        console.error('Error fetching patient or user:', err);
+        return res.status(500).json({
+            message: 'Error fetching patient or user, please try again later.',
+            error: err.message
+        });
+    }
+};
+
 export const getTherapistById = async (req, res) => {
     const { id } = req.params;
     const query = `SELECT * FROM therapist WHERE id = $1;`;
@@ -96,12 +162,31 @@ export const getPatientById = async (req, res) => {
             return res.status(404).json({ message: 'No patient found with this id!' });
         }
 
-        
-        return res.status(200).json({ patient: rows });
+        return res.status(200).json({ patient: rows[0] });
     } catch (err) {
         console.error("Error fetching patient:", err);
         return res.status(500).json({
             message: 'Error fetching patient, please try again later.',
+            error: err.message
+        });
+    }
+}
+
+export const getParentById = async (req, res) => {
+    const { id } = req.params;
+    const query = `SELECT * FROM parent WHERE id = $1;`;
+
+    try {
+        const { rows } = await db.query(query, [id]);
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'No parent found with this id!' });
+        }
+
+        return res.status(200).json({ parent: rows[0] });
+    } catch (err) {
+        console.error("Error fetching parent:", err);
+        return res.status(500).json({
+            message: 'Error fetching parent, please try again later.',
             error: err.message
         });
     }

@@ -14,6 +14,21 @@ const db = pool;
 
 const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
+async function createUserIfNotExists(email, role) {
+    const existing = await db.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (existing.rows.length === 0) {
+        const insertQuery = `
+            INSERT INTO users (email, password, role)
+            VALUES ($1, $2, $3)
+            RETURNING *;
+        `;
+        const result = await db.query(insertQuery, [email, hashedPassword, role]);
+        return result.rows[0]; // return created user
+    } else {
+        return existing.rows[0]; // return existing user
+    }
+}
+
 export async function createTables() {
     try {
         await createUserTable();
@@ -44,86 +59,52 @@ export async function createTables() {
         const hashedPassword = await argon2.hash(password);
 
 
-        const patient = `
-            INSERT INTO users (email, password, role)
-            VALUES ($1, $2, $3)
-            RETURNING *;
-            `;
-        
-        await db.query(patient, ['patient@patient.patient', hashedPassword, 'patient']);
-        
-        const parent = `
-            INSERT INTO users (email, password, role)
-            VALUES ($1, $2, $3)
-            RETURNING *;
-            `;
-        
-        await db.query(parent, ['parent@parent.parent',hashedPassword, 'parent']);
-        
-        const therapist = `
-            INSERT INTO users (email, password, role)
-            VALUES ($1, $2, $3)
-            RETURNING *;
-            `;
-        
-        await db.query(therapist, ['therapist@therapist.therapist',hashedPassword, 'therapist']);
+        const user1 = await createUserIfNotExists('patient@patient.patient', 'patient');
+        const user2 = await createUserIfNotExists('parent@parent.parent', 'parent');
+        const user3 = await createUserIfNotExists('therapist@therapist.therapist', 'therapist');
+        const user4 = await createUserIfNotExists('therapist2@therapist.therapist', 'therapist');
+        const user5 = await createUserIfNotExists('patient2@patient.patient', 'patient');
 
-        const therapist2 = `
-            INSERT INTO users (email, password, role)
-            VALUES ($1, $2, $3)
-            RETURNING *;
-            `;
-        
-        await db.query(therapist2, ['therapist2@therapist.therapist', hashedPassword, 'therapist']);
+        // Insert therapist data only if not exists (based on userId)
+        const therapist = await db.query('SELECT * FROM therapist WHERE userId = $1', [user3.id]);
+        if (therapist.rows.length === 0) {
+            await db.query(`
+                INSERT INTO therapist (name, age, phone, userId, specialization)
+                VALUES ('therapist', 40, '01234567890', $1, 'test')
+            `, [user3.id]);
+        }
 
-         const patient2 = `
-            INSERT INTO users (email, password, role)
-            VALUES ($1, $2, $3)
-            RETURNING *;
-            `;
-        
-        await db.query(patient2, ['patient2@patient.patient', hashedPassword, 'patient']);
+        const therapist2 = await db.query('SELECT * FROM therapist WHERE userId = $1', [user4.id]);
+        if (therapist2.rows.length === 0) {
+            await db.query(`
+                INSERT INTO therapist (name, age, phone, userId, specialization, certified, verified)
+                VALUES ('therapist2', 40, '01234567890', $1, 'test', true, true)
+            `, [user4.id]);
+        }
 
-        const therapistQuery = `
-            INSERT INTO therapist (name, age, phone, userId, specialization)
-            VALUES ('therapist', 40, 01234567890, 3, 'test')
-            RETURNING *;
-            `;
-        
-        await db.query(therapistQuery);
+        const patient1 = await db.query('SELECT * FROM patient WHERE userId = $1', [user1.id]);
+        if (patient1.rows.length === 0) {
+            await db.query(`
+                INSERT INTO patient (therapistId, parentId, name, age, phone, userId)
+                VALUES (1, null, 'patient', 20, '01234567890', $1)
+            `, [user1.id]);
+        }
 
-        const therapist2Query = `
-            INSERT INTO therapist (name, age, phone, userId, specialization, certified, verified)
-            VALUES ('therapist2', 40, 01234567890, 4, 'test', true, true)
-            RETURNING *;
-            `;
-        
-        await db.query(therapist2Query);
+        const patient2 = await db.query('SELECT * FROM patient WHERE userId = $1', [user5.id]);
+        if (patient2.rows.length === 0) {
+            await db.query(`
+                INSERT INTO patient (therapistId, parentId, name, age, phone, userId)
+                VALUES (2, null, 'patient', 23, '01234567890', $1)
+            `, [user5.id]);
+        }
 
-        const patientQuery = `
-            INSERT INTO patient (therapistId, parentId, name, age, phone, userId)
-            VALUES (1, null, 'patient', 20, 01234567890, 1)
-            RETURNING *;
-            `;
-        
-        await db.query(patientQuery);
-
-        const patientQuery2 = `
-            INSERT INTO patient (therapistId, parentId, name, age, phone, userId)
-            VALUES (2, null, 'patient', 23, 01234567890, 5)
-            RETURNING *;
-            `;
-        
-        await db.query(patientQuery2)
-        
-         const parentQuery = `
-            INSERT INTO parent (name, age, phone, userId)
-            VALUES ('parent', 35, 01234567890, 2)
-            RETURNING *;
-            `;
-        
-        await db.query(parentQuery);
-
+        const parent = await db.query('SELECT * FROM parent WHERE userId = $1', [user2.id]);
+        if (parent.rows.length === 0) {
+            await db.query(`
+                INSERT INTO parent (name, age, phone, userId)
+                VALUES ('parent', 35, '01234567890', $1)
+            `, [user2.id]);
+        }
         
         console.log("All tables created successfully!");
     } catch (error) {

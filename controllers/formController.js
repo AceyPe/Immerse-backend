@@ -46,24 +46,25 @@ export const formSubmit = async (req, res) => {
 }
 
 export const getForms = async (req, res) => {
-    const query = `SELECT * FROM fear_analysis_feedback;`;
-
     try {
-        const { rows } = await db.query(query);
-        if (rows.length === 0) {
-            return res.status(404).json({ message: 'No users were found!' });
-        }
-
-        
-        return res.status(200).json({ users: rows });
+      const fearQuery = `SELECT * FROM fear_analysis_feedback;`;
+      const parentQuery = `SELECT * FROM parent_feedback;`;
+    const [fearResult, parentResult] = await Promise.all([
+        db.query(fearQuery),
+        db.query(parentQuery),
+    ]);
+        return res.status(200).json({
+            fearForms: fearResult.rows,
+            parentForms: parentResult.rows,
+    });
     } catch (err) {
-        console.error("Error fetching users:", err);
+        console.error("Error fetching forms:", err);
         return res.status(500).json({
-            message: 'Error fetching users, please try again later.',
+            message: 'Error fetching forms, please try again later.',
             error: err.message
         });
     }
-}
+};
 
 export const getFearFormById = async (req, res) => {
     const { id } = req.params;
@@ -75,8 +76,8 @@ export const getFearFormById = async (req, res) => {
             return res.status(404).json({ message: 'Form response not found' });
         }
 
-        const { password, ...userData } = rows[0];
-        return res.status(200).json({ user: userData });
+        const formData = rows[0];
+        return res.status(200).json({ form: formData });
     } catch (err) {
         console.error('Error fetching form response:', err);
         return res.status(500).json({
@@ -88,7 +89,7 @@ export const getFearFormById = async (req, res) => {
 
 export const getParentFormById = async (req, res) => {
     const { id } = req.params;
-    const query = `SELECT * FROM fear_analysis_feedback WHERE id = $1;`;
+    const query = `SELECT * FROM parent_feedback WHERE id = $1;`;
 
     try {
         const { rows } = await db.query(query, [id]);
@@ -96,8 +97,8 @@ export const getParentFormById = async (req, res) => {
             return res.status(404).json({ message: 'Form response not found' });
         }
 
-        const { password, ...userData } = rows[0];
-        return res.status(200).json({ user: userData });
+        const formData = rows[0];
+        return res.status(200).json({ form: formData });
     } catch (err) {
         console.error('Error fetching form response:', err);
         return res.status(500).json({
@@ -109,8 +110,12 @@ export const getParentFormById = async (req, res) => {
 
 export const getFearFormsByTherapistId = async (req, res) => {
     const { id } = req.params;
-    const query = `SELECT * FROM fear_analysis_feedback WHERE therapistId = $1;`;
-
+    const query = `
+                    SELECT f.*
+                    FROM fear_analysis_feedback f
+                    JOIN patient p ON f.patientId = p.id
+                    WHERE p.therapistId = $1;
+                `;
     try {
         const { rows } = await db.query(query, [id]);
         if (rows.length === 0) {
@@ -118,7 +123,7 @@ export const getFearFormsByTherapistId = async (req, res) => {
         }
 
         const { password, ...userData } = rows[0];
-        return res.status(200).json({ user: userData });
+        return res.status(200).json({ forms: userData });
     } catch (err) {
         console.error('Error fetching form response:', err);
         return res.status(500).json({
@@ -130,7 +135,10 @@ export const getFearFormsByTherapistId = async (req, res) => {
 
 export const getParentFormsByTherapistId = async (req, res) => {
     const { id } = req.params;
-    const query = `SELECT * FROM parent_feedback WHERE therapistId = $1;`;
+    const query = `SELECT f.*
+                    FROM parent_feedback f
+                    JOIN patient p ON f.patientId = p.id
+                    WHERE therapistId = $1;`;
 
     try {
         const { rows } = await db.query(query, [id]);
@@ -139,7 +147,7 @@ export const getParentFormsByTherapistId = async (req, res) => {
         }
 
         const { password, ...userData } = rows[0];
-        return res.status(200).json({ user: userData });
+        return res.status(200).json({ forms: userData });
     } catch (err) {
         console.error('Error fetching form response:', err);
         return res.status(500).json({

@@ -17,10 +17,8 @@ export async function createParentFeedbackTable() {
     `;
     try {
         await db.query(query);
-        console.log('Fear Analysis table created or already exists.');
+        console.log('parent feedback table created or already exists.');
     } catch (error) {
-        console.error('Error creating Fear Analysis table:', error);
+        console.error('Error creating parent feedback table:', error);
     }
 }
-
-
