@@ -8,6 +8,7 @@ import { createFearAnalysisTable } from '../models/fearAnalysisFeedbackModel.js'
 import { createCertificationTable } from '../models/certificationModel.js'
 import { pool } from '../config/db.js';
 import argon2, { argon2id } from 'argon2';
+import { createContactFormTable } from '../models/contactFormModel.js';
 
  
 const db = pool;
@@ -53,6 +54,9 @@ export async function createTables() {
         await delay(100);
 
         await createCertificationTable();
+        await delay(100);
+
+        await createContactFormTable();
         await delay(100);
 
         const password = "123";

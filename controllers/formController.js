@@ -8,6 +8,15 @@ function sanitizeInput(input) {
     return validator.escape(input);
 }
 
+function sanitizePhoneNumber(input) {
+    const phonenumberRegix = /^0\d{10}$/;
+    if (phonenumberRegix.test(input))
+    {
+        return input;
+    }
+    return "invalid";
+}
+
 export const formSubmit = async (req, res) => {
     const { data, type } = req.body;
     const parentQuery = `
@@ -19,6 +28,12 @@ export const formSubmit = async (req, res) => {
     const patientQuery = `
     INSERT INTO fear_analysis_feedback (patientId, sessionId, patientName, rating, ratingReason, feeling, stressLevel, struggle, sessionFeedback)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING *;
+    `;
+
+    const contactQuery = `
+    INSERT INTO contact_form (email, phonenumber, message)
+    VALUES ($1, $2, $3)
     RETURNING *;
     `;
     
@@ -37,6 +52,15 @@ export const formSubmit = async (req, res) => {
             const sanitizeRatingReason = sanitizeInput(ratingReason);
             const sanitizeSessionFeedBack = sanitizeInput(sessionFeedback);
             await db.query(patientQuery, [patientId, sessionId, patientName, rating, sanitizeRatingReason, feeling, stressLevel, struggle, sanitizeSessionFeedBack]);
+            res.status(201).json({ message: "Form Submited Successfully!" });
+        }
+
+        else if (type === "contact") {
+            const { email, phonenumber, message } = data;
+            const sanitizedEmail = sanitizeInput(email);
+            const sanitizedphoneNumber = sanitizePhoneNumber(phonenumber);
+            const sanitizedMessage = sanitizeInput(message);
+            await db.query(contactQuery, [sanitizedEmail, sanitizedphoneNumber, sanitizedMessage ]);
             res.status(201).json({ message: "Form Submited Successfully!" });
         }
     } catch (error) {
@@ -156,3 +180,18 @@ export const getParentFormsByTherapistId = async (req, res) => {
         });
     }
 };
+
+export const getContactForms = async (req, res) => {
+    try {
+        
+        const query = `SELECT * FROM contact_form;`
+        const result = await db.query(query);
+        res.status(200).json({ forms: result.rows });
+    } catch (error) {
+        console.error('Error fetching forms:', err);
+        return res.status(500).json({
+            message: 'Error fetching forms, please try again later.',
+            error: err.message
+        });
+    }
+}
